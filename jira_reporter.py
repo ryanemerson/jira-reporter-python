@@ -52,14 +52,14 @@ def add_issue_to_table(domain, username, table, issue, roles=list()):
     table.add_row([''] * 8)
 
 
-def search_domains(domains, username, start_date=date(1990, 1, 1), end_date=date.today(), max_results=50):
+def search_domains(domains, username, start_date=date(1990, 1, 1), end_date=date.today(), max_results=50, order='ASC'):
     for key, domain in domains.items():
         jira = JIRA(domain)
         issues = jira.search_issues("(assignee = {0} OR reporter = {0})"
                                     "AND (updated >= '{1}' OR created >= '{1}')"
                                     "AND (updated < '{2}' OR created < '{2}')"
-                                    "ORDER BY updated ASC"
-                                    .format(username, start_date, end_date),
+                                    "ORDER BY updated {3}"
+                                    .format(username, start_date, end_date, order),
                                     fields=','.join(FIELDS),
                                     maxResults=max_results)
         if issues:
@@ -83,6 +83,9 @@ def get_program_args():
     parser.add_argument('-jl', '--jira-limit', dest='jira_limit', type=check_negative_int, default=50,
                         help="The maximum number of JIRA issues that will be returned for each domain.")
 
+    parser.add_argument('--lifo', dest='order', action='store_const', const='DESC', default='ASC',
+                        help="If specified, JIRA issues are output from the most recently updated issue.")
+
     args = parser.parse_args()
 
     # Convert list of domain keys into OrderedDict
@@ -97,4 +100,4 @@ def get_program_args():
 
 if __name__ == '__main__':
     a = get_program_args()
-    search_domains(a.domains, a.username, a.start_date, a.end_date, a.jira_limit)
+    search_domains(a.domains, a.username, a.start_date, a.end_date, a.jira_limit, a.order)
