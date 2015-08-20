@@ -52,16 +52,18 @@ def add_issue_to_table(domain, username, table, issue, roles=list()):
     table.add_row([''] * 8)
 
 
-def search_domains(domains, username, start_date=date(1990, 1, 1), end_date=date.today(), max_results=50, order='ASC'):
+def search_domains(domains, username, **kwargs):
+    search_field = ','.join(FIELDS)
+    search_str = "(assignee = {0} OR reporter = {0})" \
+                 "AND (updated >= '{1}' OR created >= '{1}')" \
+                 "AND (updated < '{2}' OR created < '{2}')" \
+                 "ORDER BY updated {3}".format(username, kwargs.get('start_date', date(1990, 1, 1)),
+                                               kwargs.get('end_date', date.today()), kwargs.get('order', 'ASC'))
+
     for key, domain in domains.items():
         jira = JIRA(domain)
-        issues = jira.search_issues("(assignee = {0} OR reporter = {0})"
-                                    "AND (updated >= '{1}' OR created >= '{1}')"
-                                    "AND (updated < '{2}' OR created < '{2}')"
-                                    "ORDER BY updated {3}"
-                                    .format(username, start_date, end_date, order),
-                                    fields=','.join(FIELDS),
-                                    maxResults=max_results)
+        issues = jira.search_issues(search_str, fields=search_field, maxResults=kwargs.get('jira_limit', 50))
+
         if issues:
             print("{0} JIRA issues involving '{1}'".format(key, username))
             print_issues(domain, username, issues, roles=['Assignee'])
@@ -100,4 +102,5 @@ def get_program_args():
 
 if __name__ == '__main__':
     a = get_program_args()
-    search_domains(a.domains, a.username, a.start_date, a.end_date, a.jira_limit, a.order)
+    options = {'start_date': a.start_date, 'end_date': a.end_date, 'jira_limit': a.jira_limit, 'order': a.order}
+    search_domains(a.domains, a.username, **options)
