@@ -12,7 +12,7 @@ JIRA_LOCATIONS = OrderedDict([
 FIELDS = ['project', 'summary', 'key', 'status', 'reporter', 'assignee', 'updated', 'comment']
 
 
-def check_negative(value):
+def check_negative_int(value):
     try:
         ret_value = int(value)
     except ValueError:
@@ -52,8 +52,8 @@ def add_issue_to_table(domain, username, table, issue, roles=list()):
     table.add_row([''] * 8)
 
 
-def search_all_issues(jira_dict, username, start_date=date(1990, 1, 1), end_date=date.today(), max_results=50):
-    for key, domain in jira_dict.items():
+def search_domains(domains, username, start_date=date(1990, 1, 1), end_date=date.today(), max_results=50):
+    for key, domain in domains.items():
         jira = JIRA(domain)
         issues = jira.search_issues("(assignee = {0} OR reporter = {0})"
                                     "AND (updated >= '{1}' OR created >= '{1}')"
@@ -80,7 +80,7 @@ def get_program_args():
     parser.add_argument('-d', '--domains', nargs='+', choices=JIRA_LOCATIONS.keys(), default=JIRA_LOCATIONS,
                         help="A list of the JIRA keys associated with the domain(s) that should be searched.")
 
-    parser.add_argument('-jl', '--jira-limit', dest='jira_limit', type=check_negative, default=50,
+    parser.add_argument('-jl', '--jira-limit', dest='jira_limit', type=check_negative_int, default=50,
                         help="The maximum number of JIRA issues that will be returned for each domain.")
 
     args = parser.parse_args()
@@ -97,4 +97,4 @@ def get_program_args():
 
 if __name__ == '__main__':
     a = get_program_args()
-    search_all_issues(a.domains, a.username, a.start_date, a.end_date, a.jira_limit)
+    search_domains(a.domains, a.username, a.start_date, a.end_date, a.jira_limit)
