@@ -63,18 +63,6 @@ def write_csv_headers(domain, headers, **kwargs):
     _first_csv_domain = False
 
 
-def process_issues(domain, username, issues, **kwargs):
-    headers = ['ID', 'Project', 'Title', 'Role', 'Status', '#Comments', 'Link', 'Updated On']
-    table = create_ascii_table(headers) if kwargs.get('ascii') else None
-    write_csv_headers(domain, headers, **kwargs)
-
-    for issue in issues:
-        output_issue(domain, username, issue, table=table, **kwargs)
-
-    if table is not None:
-        print(table)
-
-
 def output_issue(domain, username, issue, table=None, **kwargs):
     user_roles = list(kwargs.get('user_roles', []))
     if issue.fields.reporter.name == username:
@@ -92,6 +80,18 @@ def output_issue(domain, username, issue, table=None, **kwargs):
 
     # Write to csv file
     write_csv_row(kwargs.get('csv_writer'), row_content)
+
+
+def process_issues(domain, username, issues, **kwargs):
+    headers = ['ID', 'Project', 'Title', 'Role', 'Status', '#Comments', 'Link', 'Updated On']
+    table = create_ascii_table(headers) if kwargs.get('ascii') else None
+    write_csv_headers(domain, headers, **kwargs)
+
+    for issue in issues:
+        output_issue(domain, username, issue, table=table, **kwargs)
+
+    if table is not None:
+        print(table)
 
 
 def search_jira_domains(domains, username, **kwargs):
