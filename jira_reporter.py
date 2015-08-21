@@ -1,4 +1,5 @@
 import argparse
+import csv
 from collections import OrderedDict
 from datetime import date, datetime
 from jira import JIRA
@@ -30,29 +31,59 @@ def valid_date(string):
         raise argparse.ArgumentTypeError("Not a valid date: '{0}'.".format(string))
 
 
-def print_issues(domain, username, issues, roles=list()):
-    table = PrettyTable(['ID', 'Project', 'Title', 'Role', 'Status', '#Comments', 'Link', 'Updated On'])
+def create_ascii_table(headers):
+    table = PrettyTable(headers)
     table.align = 'l'
     table.max_width = 12
     table.max_width['Title'] = table.max_width['Link'] = 60
     table.align['#User Comments'] = 'r'
+    return table
+
+
+def print_ascii_row(table, row_data, empty_row=None):
+    if table is not None:
+        table.add_row(row_data)
+        if empty_row is not None:
+            table.add_row(empty_row)
+
+
+def write_csv_row(csv_writer, row_data):
+    if csv_writer is not None:  # Only write headers if csv writer exists
+        csv_writer.writerow(row_data)
+
+
+def process_issues(domain, username, issues, **kwargs):
+    headers = ['ID', 'Project', 'Title', 'Role', 'Status', '#Comments', 'Link', 'Updated On']
+    table = create_ascii_table(headers) if kwargs.get('ascii') else None
+    write_csv_row(kwargs.get('csv_writer'), headers)
+
     for issue in issues:
-        add_issue_to_table(domain, username, table, issue, list(roles))
-    print(table)
+        output_issue(domain, username, issue, table=table, **kwargs)
+
+    if table is not None:
+        print(table)
 
 
-def add_issue_to_table(domain, username, table, issue, roles=list()):
+def output_issue(domain, username, issue, table=None, **kwargs):
+    user_roles = list(kwargs.get('user_roles', []))
     if issue.fields.reporter.name == username:
-        roles.append('Reporter')
+        user_roles.append('Reporter')
+
     link = domain + "/browse/" + issue.key
     updated_time = issue.fields.updated[:10].replace('-', '/')
     comments = [comment for comment in issue.fields.comment.comments if comment.author.name == username]
-    table.add_row([issue.key, issue.fields.project.name, issue.fields.summary,
-                   ','.join(roles), issue.fields.status.name, len(comments), link, updated_time])
-    table.add_row([''] * 8)
+
+    row_content = [issue.key, issue.fields.project.name, issue.fields.summary, ','.join(user_roles),
+                   issue.fields.status.name, len(comments), link, updated_time]
+
+    # Add to ascii table if enabled
+    print_ascii_row(table, row_content, [''] * 8)
+
+    # Write to csv file
+    write_csv_row(kwargs.get('csv_writer'), row_content)
 
 
-def search_domains(domains, username, **kwargs):
+def search_jira_domains(domains, username, **kwargs):
     search_field = ','.join(FIELDS)
     search_str = "(assignee = {0} OR reporter = {0})" \
                  "AND (updated >= '{1}' OR created >= '{1}')" \
@@ -65,8 +96,10 @@ def search_domains(domains, username, **kwargs):
         issues = jira.search_issues(search_str, fields=search_field, maxResults=kwargs.get('jira_limit', 50))
 
         if issues:
-            print("{0} JIRA issues involving '{1}'".format(key, username))
-            print_issues(domain, username, issues, roles=['Assignee'])
+            if kwargs.get('ascii'):
+                print("{0} JIRA issues involving '{1}'".format(key, username))
+
+            process_issues(domain, username, issues, **kwargs)
 
 
 def get_program_args():
@@ -86,7 +119,14 @@ def get_program_args():
                         help="The maximum number of JIRA issues that will be returned for each domain.")
 
     parser.add_argument('--lifo', dest='order', action='store_const', const='DESC', default='ASC',
-                        help="If specified, JIRA issues are output from the most recently updated issue.")
+                        help="JIRA issues are output from the most recently updated issue.")
+
+    parser.add_argument('--no-ascii', dest='ascii', action='store_false',
+                        help="JIRA issues will not be output to the console.")
+
+    parser.add_argument('-c', '--csv', dest='csv', nargs='?', type=str, choices=csv.list_dialects(), const='excel',
+                        help="JIRA issues are output to a csv file 'jira.csv'. This flag takes an optional keyword "
+                             "parameter that determines the format of the generated csv file.")
 
     args = parser.parse_args()
 
@@ -102,5 +142,14 @@ def get_program_args():
 
 if __name__ == '__main__':
     a = get_program_args()
-    options = {'start_date': a.start_date, 'end_date': a.end_date, 'jira_limit': a.jira_limit, 'order': a.order}
-    search_domains(a.domains, a.username, **options)
+    options = {'start_date': a.start_date, 'end_date': a.end_date, 'jira_limit': a.jira_limit, 'order': a.order,
+               'user_roles': ['Assignee'], 'ascii': a.ascii}
+
+    # Only create a file if absolutely necessary
+    if a.csv is not None:
+        filename = "{}-jira.csv".format(a.username)
+        with open(filename, mode='w') as csvfile:
+            options['csv_writer'] = csv.writer(csvfile, dialect=a.csv)
+            search_jira_domains(a.domains, a.username, **options)
+    else:
+        search_jira_domains(a.domains, a.username, **options)
