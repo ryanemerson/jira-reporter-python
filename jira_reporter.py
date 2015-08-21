@@ -97,14 +97,14 @@ def search_jira_domains(domains, username, **kwargs):
 
         if issues:
             if kwargs.get('ascii'):
-                print("{0} JIRA issues involving '{1}'".format(key, username))
+                print("{0} issues".format(key))
 
             process_issues(domain, username, issues, **kwargs)
 
 
 def get_program_args():
     parser = argparse.ArgumentParser(description='Returns JIRA issues associated with a given user')
-    parser.add_argument('username', type=str, help='A JIRA <username> must be specified')
+    parser.add_argument('usernames', nargs='+', help='At least one JIRA username must be specified.')
 
     parser.add_argument('-s', '--startDate', dest='start_date', type=valid_date, default=date(1990, 1, 1),
                         metavar='YYYY-MM-DD', help="The date from which JIRAs are returned.")
@@ -145,11 +145,15 @@ if __name__ == '__main__':
     options = {'start_date': a.start_date, 'end_date': a.end_date, 'jira_limit': a.jira_limit, 'order': a.order,
                'user_roles': ['Assignee'], 'ascii': a.ascii}
 
-    # Only create a file if absolutely necessary
-    if a.csv is not None:
-        filename = "{}-jira.csv".format(a.username)
-        with open(filename, mode='w') as csvfile:
-            options['csv_writer'] = csv.writer(csvfile, dialect=a.csv)
-            search_jira_domains(a.domains, a.username, **options)
-    else:
-        search_jira_domains(a.domains, a.username, **options)
+    for username in a.usernames:
+        if a.ascii:
+            print("JIRA Issues Associated with {} at domains {}".format(username, list(a.domains)))
+
+        # Only create a file if absolutely necessary
+        if a.csv is not None:
+            filename = "{}-jira.csv".format(username)
+            with open(filename, mode='w') as csvfile:
+                options['csv_writer'] = csv.writer(csvfile, dialect=a.csv)
+                search_jira_domains(a.domains, username, **options)
+        else:
+            search_jira_domains(a.domains, username, **options)
