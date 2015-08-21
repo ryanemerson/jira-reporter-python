@@ -12,6 +12,8 @@ JIRA_LOCATIONS = OrderedDict([
 ])
 FIELDS = ['project', 'summary', 'key', 'status', 'reporter', 'assignee', 'updated', 'comment']
 
+_first_csv_domain = True
+
 
 def check_negative_int(value):
     try:
@@ -52,10 +54,19 @@ def write_csv_row(csv_writer, row_data):
         csv_writer.writerow(row_data)
 
 
+def write_csv_headers(domain, headers, **kwargs):
+    global _first_csv_domain
+    if not _first_csv_domain:
+        write_csv_row(kwargs.get('csv_writer'), [])
+    write_csv_row(kwargs.get('csv_writer'), [domain + ' issues'])
+    write_csv_row(kwargs.get('csv_writer'), headers)
+    _first_csv_domain = False
+
+
 def process_issues(domain, username, issues, **kwargs):
     headers = ['ID', 'Project', 'Title', 'Role', 'Status', '#Comments', 'Link', 'Updated On']
     table = create_ascii_table(headers) if kwargs.get('ascii') else None
-    write_csv_row(kwargs.get('csv_writer'), headers)
+    write_csv_headers(domain, headers, **kwargs)
 
     for issue in issues:
         output_issue(domain, username, issue, table=table, **kwargs)
@@ -145,15 +156,15 @@ if __name__ == '__main__':
     options = {'start_date': a.start_date, 'end_date': a.end_date, 'jira_limit': a.jira_limit, 'order': a.order,
                'user_roles': ['Assignee'], 'ascii': a.ascii}
 
-    for username in a.usernames:
+    for user in a.usernames:
         if a.ascii:
-            print("JIRA Issues Associated with {} at domains {}".format(username, list(a.domains)))
+            print("JIRA Issues Associated with {} at domains {}".format(user, list(a.domains)))
 
         # Only create a file if absolutely necessary
         if a.csv is not None:
-            filename = "{}-jira.csv".format(username)
+            filename = "{}-jira.csv".format(user)
             with open(filename, mode='w') as csvfile:
                 options['csv_writer'] = csv.writer(csvfile, dialect=a.csv)
-                search_jira_domains(a.domains, username, **options)
+                search_jira_domains(a.domains, user, **options)
         else:
-            search_jira_domains(a.domains, username, **options)
+            search_jira_domains(a.domains, user, **options)
