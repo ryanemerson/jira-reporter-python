@@ -8,7 +8,7 @@ from prettytable import PrettyTable
 JIRA_LOCATIONS = OrderedDict([
     ('JBOSS', 'https://issues.jboss.org'),
     ('HIBERNATE', 'https://hibernate.atlassian.net'),
-    # ('APACHE', 'https://issues.apache.org')
+    ('APACHE', 'https://issues.apache.org/jira')
 ])
 FIELDS = ['project', 'summary', 'key', 'status', 'reporter', 'assignee', 'updated', 'comment']
 
